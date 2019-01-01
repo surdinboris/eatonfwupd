@@ -73,6 +73,8 @@ def searchv(val):
             return rev[1]
 
 def upgrade():
+    ser.flushInput()
+    ser.flushOutput()
     print('\n')
     input('Please connect bbu to COM port and network, plug in power cord and press any key...')
     print('\n')
