@@ -43,7 +43,7 @@ def read_until(val,inval=None):
         if inval:
             invrev = re.search(inval, line)
         if inval and invrev:
-            raise ConnectionError("Network card does not retrieved IP via DHCP and asks for manual IP address, please check your DHCP server configuration")
+            raise ConnectionError("Network card did not recieved IP via DHCP and asks for manual IP address, please check your DHCP server configuration")
         rev = re.search(val, line)
         if val and rev:
             return rev
@@ -75,6 +75,8 @@ def searchv(val):
 def upgrade():
     print('\n')
     input('Please connect bbu to COM port and network, plug in power cord and press any key...')
+    ser.flushInput()
+    ser.flushOutput()
     print('\n')
     #Booting - searching for revision
 
@@ -111,12 +113,15 @@ def upgrade():
 if __name__ == "__main__":
     for file in os.listdir(os.path.join(os.getcwd(),'TFTP-Root')):
         os.remove(os.path.join(os.getcwd(),'TFTP-Root', file))
-    port=serial_ports()[0]
-    ser = serial.Serial(port,
-                        timeout=10,
-                        baudrate=9600,
-                        xonxoff=0,
-                        stopbits=1,
-                        parity=serial.PARITY_NONE,
-                        bytesize=8)
-    upgrade()
+    if len(serial_ports()) > 0:
+        port=serial_ports()[0]
+        ser = serial.Serial(port,
+                            timeout=10,
+                            baudrate=9600,
+                            xonxoff=0,
+                            stopbits=1,
+                            parity=serial.PARITY_NONE,
+                            bytesize=8)
+        upgrade()
+    else:
+        print("No active COM ports found. Interrupting.")
