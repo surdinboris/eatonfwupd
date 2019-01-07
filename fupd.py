@@ -6,10 +6,10 @@ import glob
 import re
 import os
 from shutil import copyfile
-
+#import subprocess
 debug = False
 buff= io.BytesIO(b'')
-
+cwd= os.path.dirname(os.path.realpath(__file__))
 def serial_ports():
     if sys.platform.startswith('win'):
         ports = ['COM%s' % (i + 1) for i in range(256)]
@@ -34,7 +34,7 @@ def sendcom(cmd=''):
     ser.write(cmd.encode())
     ser.write("\r\n".encode())
 
-def read_until(val,inval=None):
+def read_until(ser,val,inval=None):
     while True:
         line = str(ser.readline().decode('ascii'))
         if len(line) > 1:
@@ -48,7 +48,8 @@ def read_until(val,inval=None):
         if val and rev:
             return rev
 
-def write(comm):
+def write(ser,comm):
+    time.sleep(0.1)
     if len(comm) == 1:
         if debug:
             print('Writing {}'.format(comm.encode('ascii')))
@@ -63,7 +64,7 @@ def write(comm):
     time.sleep(1)
     ser.write('\r'.encode('ascii'))
 
-def searchv(val):
+def searchv(ser,val):
     while True:
         line = str(ser.readline().decode('UTF-8'))
         rev = re.search('{} (\w+)'.format(val), line)
@@ -72,48 +73,61 @@ def searchv(val):
         if rev:
             return rev[1]
 
-def upgrade():
+def upgrade(ser):
     print('\n')
-    input('Please connect bbu to COM port and network, plug in power cord and press any key...')
+    input('Please connect bbu to COM port and network and press any key...')
+    print('Please turn on BBU...')
     ser.flushInput()
     ser.flushOutput()
     print('\n')
     #Booting - searching for revision
 
-    rev = searchv('Kitting revision :')
-    sn = searchv('Serial number :')
-    print('  > Network card {} found, revision {}'.format(sn, rev))
+    rev = searchv(ser,'Kitting revision :')
+    sn = searchv(ser,'Serial number :')
+    print('  >1 Network card {} found, revision {}'.format(sn, rev))
 
     if rev == 'LA':
         #put filename on tftp server for new revision NMC_EATON_JB_rp.bin
-        copyfile(os.path.join(os.getcwd(), 'NMC_EATON_JB_rp.bin'),os.path.join(os.getcwd(),'TFTP-Root','image.bin'))
+        copyfile(os.path.join(cwd, 'NMC_EATON_JB_rp.bin'),os.path.join(cwd,'TFTP-Root','image.bin'))
     else:
         # put filename on tftp server for OLD revision Network-Card-MS_Revision_JB.bin
-        copyfile(os.path.join(os.getcwd(), 'Network-Card-MS_Revision_JB.bin'), os.path.join(os.getcwd(), 'TFTP-Root', 'image.bin'))
+        copyfile(os.path.join(cwd, 'Network-Card-MS_Revision_JB.bin'), os.path.join(cwd, 'TFTP-Root', 'image.bin'))
 
     #Waiting for upgrade mode
-    read_until("To force the upgrade mode, type 'y', then press ENTER")
-    write('y')
-    print("  > Wait 1 min until boot...")
+    read_until(ser,"To force the upgrade mode, type 'y', then press ENTER")
+    write(ser,'y')
+    print("  >2 Wait 1 min until boot...")
     # read_until("Set the IP address :")
     # write('192.168.1.2')
     # read_until("Set the subnet mask address :")
     # write('255.255.255.0')
     # read_until("Set the gateway address :")
     # write('0.0.0.0')
-    read_until('Set the TFTP server IP address :',"Set the IP address :")
-    print("  > Setting TFTP server IP address....")
-    write('192.168.1.3')
-    print("  > Working. DO NOT DISCONNECT BBU! Please wait...")
-    read_until('Flashing done')
-    print('  > Flashing done sucessfully.')
-    print('~'*300)
-    upgrade()
+    read_until(ser,'Set the TFTP server IP address :',"Set the IP address :")
+    print("  >3 Setting TFTP server IP address....")
+    write(ser,'192.168.1.3')
+    print("  >4 Working. DO NOT DISCONNECT BBU! Please wait...")
+    read_until(ser,'Flashing done')
+    print('  >5 Resetting card to default configuration')
+    read_until(ser,'Press a key to display the Rescue Menu')
+    ser.write('a'.encode('ascii'))
+    read_until(ser,'Enter password :')
+    write(ser,'admin')
+    read_until(ser,'Return to Default Configuration ?')
+    write(ser,'y')
+    read_until(ser,'Network connection with DHCP mode...')
+    print('  >6 Flashing done sucessfully.')
+    print('~'*100)
+    upgrade(ser)
 
 
 def init():
-    for file in os.listdir(os.path.join(os.getcwd(),'TFTP-Root')):
-        os.remove(os.path.join(os.getcwd(),'TFTP-Root', file))
+    #print("Restarting TFTP server...")
+    # if not debug:
+    #     subprocess.run(["net stop", "SolarWinds TFTP Server"])
+    #     subprocess.run(["net start", "SolarWinds TFTP Server"])
+    for file in os.listdir(os.path.join(cwd,'TFTP-Root')):
+        os.remove(os.path.join(cwd,'TFTP-Root', file))
     if len(serial_ports()) > 0:
         port=serial_ports()[0]
         ser = serial.Serial(port,
@@ -123,7 +137,7 @@ def init():
                             stopbits=1,
                             parity=serial.PARITY_NONE,
                             bytesize=8)
-        upgrade()
+        upgrade(ser)
     else:
         input("No active COM ports found.  Please connect COM cable and press any key...")
         init()
