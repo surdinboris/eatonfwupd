@@ -110,7 +110,8 @@ def upgrade():
     print('~'*300)
     upgrade()
 
-if __name__ == "__main__":
+
+def init():
     for file in os.listdir(os.path.join(os.getcwd(),'TFTP-Root')):
         os.remove(os.path.join(os.getcwd(),'TFTP-Root', file))
     if len(serial_ports()) > 0:
@@ -124,4 +125,8 @@ if __name__ == "__main__":
                             bytesize=8)
         upgrade()
     else:
-        print("No active COM ports found. Interrupting.")
+        input("No active COM ports found.  Please connect COM cable and press any key...")
+        init()
+
+if __name__ == "__main__":
+    init()
