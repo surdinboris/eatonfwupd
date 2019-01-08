@@ -75,7 +75,7 @@ def searchv(ser,val):
 
 def upgrade(ser):
     print('\n')
-    input('Please connect bbu to COM port and network and press any key...')
+    input('Please connect bbu to COM port and network and press any key...\n\n')
     print('Please turn on BBU...')
     ser.flushInput()
     ser.flushOutput()
@@ -117,7 +117,7 @@ def upgrade(ser):
     write(ser,'y')
     read_until(ser,'Network connection with DHCP mode...')
     print('  >6 Flashing done sucessfully.')
-    print('~'*100)
+    print('~'*50)
     upgrade(ser)
 
 
