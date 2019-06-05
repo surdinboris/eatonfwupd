@@ -29,13 +29,28 @@ def serial_ports():
             pass
     return result
 
+# def sendcom(cmd=''):
+#     ser.write(cmd.encode())
+#     ser.write("\r\n".encode())
 
-def sendcom(cmd=''):
-    ser.write(cmd.encode())
-    ser.write("\r\n".encode())
-
-def read_until(ser,val,inval=None):
+def spinning_cursor():
     while True:
+        for cursor in '|/-\\':
+            yield cursor
+
+def read_until(ser,val,inval=None,timeout=230):
+    start = time.time()
+    time.clock()
+    spinner = spinning_cursor()
+    while True:
+        elapsed = time.time() - start
+        exceeded = elapsed > timeout
+        if exceeded:
+            raise TimeoutError
+        sys.stdout.write(next(spinner))
+        sys.stdout.flush()
+        sys.stdout.write('\b')
+
         line = str(ser.readline().decode('ascii'))
         if len(line) > 1:
             if debug:
@@ -46,6 +61,7 @@ def read_until(ser,val,inval=None):
             raise ConnectionError("Network card did not recieved IP via DHCP and asks for manual IP address, please check your DHCP server configuration")
         rev = re.search(val, line)
         if val and rev:
+            # print('\b')
             return rev
 
 def write(ser,comm):
@@ -94,7 +110,7 @@ def upgrade(ser):
         copyfile(os.path.join(cwd, 'Network-Card-MS_Revision_JB.bin'), os.path.join(cwd, 'TFTP-Root', 'image.bin'))
 
     #Waiting for upgrade mode
-    read_until(ser,"To force the upgrade mode, type 'y', then press ENTER")
+    read_until(ser,"To force the upgrade mode, type 'y', then press ENTER",timeout=20)
     write(ser,'y')
     print("  >2 Wait 1 min until boot...")
     # read_until("Set the IP address :")
@@ -103,20 +119,20 @@ def upgrade(ser):
     # write('255.255.255.0')
     # read_until("Set the gateway address :")
     # write('0.0.0.0')
-    read_until(ser,'Set the TFTP server IP address :',"Set the IP address :")
+    read_until(ser,'Set the TFTP server IP address :',"Set the IP address :",timeout=70)
     print("  >3 Setting TFTP server IP address....")
     write(ser,'192.168.1.3')
     print("  >4 Working. DO NOT DISCONNECT BBU! Please wait...")
-    read_until(ser,'Flashing done')
+    read_until(ser,'Flashing done',timeout=30)
     print('  >5 Resetting card to default configuration')
-    read_until(ser,'Press a key to display the Rescue Menu')
+    read_until(ser,'Press a key to display the Rescue Menu',timeout=280)
     ser.write('a'.encode('ascii'))
     read_until(ser,'Enter password :')
     write(ser,'admin')
     read_until(ser,'Return to Default Configuration ?')
     write(ser,'y')
-    read_until(ser,'Network connection with DHCP mode...')
-    print('  >6 Flashing done sucessfully.')
+    # read_until(ser,'Network connection with DHCP mode...')
+    print('  >6 Flashing done successfully.')
     print('~'*50)
     upgrade(ser)
 
@@ -129,7 +145,7 @@ def init():
     for file in os.listdir(os.path.join(cwd,'TFTP-Root')):
         os.remove(os.path.join(cwd,'TFTP-Root', file))
     if len(serial_ports()) > 0:
-        port=serial_ports()[0]
+        port = serial_ports()[0]
         ser = serial.Serial(port,
                             timeout=10,
                             baudrate=9600,
